@@ -2,7 +2,8 @@
 # =============================================================================
 #  MochiOS Cross-Compilation Toolchain Builder
 #  Builds: Linux 7.0, glibc 2.43, GCC 15.2, Binutils 2.46, Bash 5.3,
-#          Coreutils 9.10, Readline 8.3, Ncurses 6.6, Inetutils 2.7
+#          Coreutils 9.10, Readline 8.3, Ncurses 6.6, Inetutils 2.7,
+#          sed 4.9, gawk 5.4.0, m4 1.4.21, diffutils 3.12, findutils 4.10.0, grep 3.12
 # =============================================================================
 set -euo pipefail
 
@@ -26,6 +27,7 @@ BUILD_DIR="${PROJECT_DIR}/build"
 export SYSROOT="${PROJECT_DIR}/rootfs"
 export TARGET="$(uname -m)-mochios-linux-gnu"
 TOOLCHAIN_DIR="${PROJECT_DIR}/tools"   # cross tools live here (not installed to host or rootfs)
+STAMPS_DIR="${PROJECT_DIR}/.stamps"
 
 # ─── Versions ─────────────────────────────────────────────────────────────────
 VER_LINUX="7.0"
@@ -37,6 +39,12 @@ VER_COREUTILS="9.10"
 VER_READLINE="8.3"
 VER_NCURSES="6.6"
 VER_INETUTILS="2.7"
+VER_SED="4.9"
+VER_GAWK="5.4.0"
+VER_M4="1.4.21"
+VER_DIFFUTILS="3.12"
+VER_FINDUTILS="4.10.0"
+VER_GREP="3.12"
 
 # ─── Parallel jobs ────────────────────────────────────────────────────────────
 JOBS="$(nproc)"
@@ -55,12 +63,18 @@ declare -A URLS=(
   ["readline-${VER_READLINE}.tar.gz"]="https://ftp.gnu.org/gnu/readline/readline-${VER_READLINE}.tar.gz"
   ["ncurses-${VER_NCURSES}.tar.gz"]="https://ftp.gnu.org/gnu/ncurses/ncurses-${VER_NCURSES}.tar.gz"
   ["inetutils-${VER_INETUTILS}.tar.gz"]="https://ftp.gnu.org/gnu/inetutils/inetutils-${VER_INETUTILS}.tar.gz"
+  ["sed-${VER_SED}.tar.xz"]="https://ftp.gnu.org/gnu/sed/sed-${VER_SED}.tar.xz"
+  ["gawk-${VER_GAWK}.tar.xz"]="https://ftp.gnu.org/gnu/gawk/gawk-${VER_GAWK}.tar.xz"
+  ["m4-${VER_M4}.tar.xz"]="https://ftp.gnu.org/gnu/m4/m4-${VER_M4}.tar.xz"
+  ["diffutils-${VER_DIFFUTILS}.tar.xz"]="https://ftp.gnu.org/gnu/diffutils/diffutils-${VER_DIFFUTILS}.tar.xz"
+  ["findutils-${VER_FINDUTILS}.tar.xz"]="https://ftp.gnu.org/gnu/findutils/findutils-${VER_FINDUTILS}.tar.xz"
+  ["grep-${VER_GREP}.tar.xz"]="https://ftp.gnu.org/gnu/grep/grep-${VER_GREP}.tar.xz"
 )
 
 # ─── Helper: check command ────────────────────────────────────────────────────
-need_cmd() {
-  command -v "$1" &>/dev/null || die "Required command not found: $1 — run step 2 (install deps) first."
-}
+need_cmd()  { command -v "$1" &>/dev/null || die "Required command not found: $1 — run step 2 (install deps) first."; }
+is_done()   { [[ -f "${STAMPS_DIR}/$1.done" ]]; }
+mark_done() { mkdir -p "${STAMPS_DIR}"; touch "${STAMPS_DIR}/$1.done"; }
 
 # =============================================================================
 #  STEP 0 — Print banner & environment
@@ -106,6 +120,7 @@ step_init_workspace() {
 # =============================================================================
 step_install_deps() {
   step "STEP 2 — Installing host build dependencies"
+  is_done "install-deps" && { info "Already done — skipping."; return 0; }
 
   if command -v pacman &>/dev/null; then
     local PKGS=(
@@ -151,6 +166,7 @@ step_install_deps() {
     warn "  gcc make cmake aria2 wget texinfo python3 bison flex gawk bc"
     warn "  libmpc libmpfr libgmp xz zstd lzip rsync git patch autoconf automake libtool"
   fi
+  mark_done "install-deps"
 }
 
 # =============================================================================
@@ -158,6 +174,7 @@ step_install_deps() {
 # =============================================================================
 step_download() {
   step "STEP 3 — Downloading sources to ${DOWNLOAD_DIR}"
+  is_done "download" && { info "Already done — skipping."; return 0; }
 
   need_cmd aria2c
 
@@ -184,6 +201,7 @@ EOF
 
   if [[ ! -s "${INPUT_FILE}" ]]; then
     log "All tarballs already downloaded ✓"
+    mark_done "download"
     return 0
   fi
 
@@ -202,6 +220,7 @@ EOF
     --file-allocation=none
 
   log "All downloads complete ✓"
+  mark_done "download"
 }
 
 # =============================================================================
@@ -209,6 +228,7 @@ EOF
 # =============================================================================
 step_extract() {
   step "STEP 4 — Extracting sources to ${SOURCES_DIR}"
+  is_done "extract" && { info "Already done — skipping."; return 0; }
 
   mkdir -p "${SOURCES_DIR}"
 
@@ -239,6 +259,7 @@ step_extract() {
   done
 
   log "All sources extracted ✓"
+  mark_done "extract"
 }
 
 # =============================================================================
@@ -246,17 +267,17 @@ step_extract() {
 # =============================================================================
 step_prepare_env() {
   step "STEP 5 — Preparing build environment"
+  export PATH="${TOOLCHAIN_DIR}/bin:${PATH}"
+  is_done "prepare-env" && { info "Already done — skipping."; return 0; }
 
   mkdir -p "${BUILD_DIR}"/{binutils-stage1,gcc-stage1,glibc-headers,glibc,gcc-stage2}
-  
+
   # Create cross-toolchain directories (host environment)
   mkdir -p "${TOOLCHAIN_DIR}/bin"
-  
-  # Add cross-tools to PATH for subsequent steps
-  export PATH="${TOOLCHAIN_DIR}/bin:${PATH}"
 
   log "Environment prepared ✓"
   info "PATH prefix: ${TOOLCHAIN_DIR}/bin"
+  mark_done "prepare-env"
 }
 
 # =============================================================================
@@ -264,6 +285,7 @@ step_prepare_env() {
 # =============================================================================
 step_rootfs_template() {
   step "STEP 5b — Fetching rootfs template"
+  is_done "rootfs-template" && { info "Already done — skipping."; return 0; }
 
   local TARBALL="${DOWNLOAD_DIR}/mcrootfs.tar.xz"
 
@@ -282,6 +304,7 @@ step_rootfs_template() {
   tar -xJf "${TARBALL}" -C "${SYSROOT}"
 
   log "Rootfs template extracted ✓"
+  mark_done "rootfs-template"
 }
 
 # =============================================================================
@@ -289,6 +312,7 @@ step_rootfs_template() {
 # =============================================================================
 step_linux_headers() {
   step "STEP 6 — Installing Linux ${VER_LINUX} kernel headers"
+  is_done "linux-headers" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/linux-${VER_LINUX}"
   [[ -d "${SRC}" ]] || die "Linux source not found: ${SRC}"
@@ -304,6 +328,7 @@ step_linux_headers() {
   find "${SYSROOT}/usr/include" \( -name '.*' -o -name 'Makefile' \) -delete 2>/dev/null || true
 
   log "Kernel headers installed ✓"
+  mark_done "linux-headers"
 }
 
 # =============================================================================
@@ -311,6 +336,7 @@ step_linux_headers() {
 # =============================================================================
 step_binutils_stage1() {
   step "STEP 7 — Building Binutils ${VER_BINUTILS} (Stage 1 cross)"
+  is_done "binutils-stage1" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/binutils-${VER_BINUTILS}"
   local BLD="${BUILD_DIR}/binutils-stage1"
@@ -337,6 +363,7 @@ step_binutils_stage1() {
   make install 2>&1 | tee "${BLD}/install.log"
 
   log "Binutils Stage 1 complete ✓"
+  mark_done "binutils-stage1"
 }
 
 # =============================================================================
@@ -344,6 +371,7 @@ step_binutils_stage1() {
 # =============================================================================
 step_gcc_stage1() {
   step "STEP 8 — Building GCC ${VER_GCC} (Stage 1 — C only)"
+  is_done "gcc-stage1" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/gcc-${VER_GCC}"
   local BLD="${BUILD_DIR}/gcc-stage1"
@@ -389,6 +417,7 @@ step_gcc_stage1() {
     2>&1 | tee "${BLD}/install.log"
 
   log "GCC Stage 1 complete ✓"
+  mark_done "gcc-stage1"
 }
 
 # =============================================================================
@@ -396,6 +425,7 @@ step_gcc_stage1() {
 # =============================================================================
 step_glibc_headers() {
   step "STEP 9 — Installing glibc ${VER_GLIBC} headers & startup files"
+  is_done "glibc-headers" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/glibc-${VER_GLIBC}"
   local BLD="${BUILD_DIR}/glibc-headers"
@@ -438,6 +468,7 @@ step_glibc_headers() {
   touch "${SYSROOT}/usr/include/gnu/stubs.h"
 
   log "glibc headers & startup files installed ✓"
+  mark_done "glibc-headers"
 }
 
 # =============================================================================
@@ -445,6 +476,7 @@ step_glibc_headers() {
 # =============================================================================
 step_glibc_full() {
   step "STEP 10 — Building full glibc ${VER_GLIBC}"
+  is_done "glibc-full" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/glibc-${VER_GLIBC}"
   local BLD="${BUILD_DIR}/glibc"
@@ -480,6 +512,7 @@ step_glibc_full() {
     2>&1 | tee "${BLD}/install.log"
 
   log "glibc full build complete ✓"
+  mark_done "glibc-full"
 }
 
 # =============================================================================
@@ -487,6 +520,7 @@ step_glibc_full() {
 # =============================================================================
 step_gcc_stage2() {
   step "STEP 11 — Building GCC ${VER_GCC} (Stage 2 — full C/C++)"
+  is_done "gcc-stage2" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/gcc-${VER_GCC}"
   local BLD="${BUILD_DIR}/gcc-stage2"
@@ -506,7 +540,9 @@ step_gcc_stage2() {
     --enable-threads=posix \
     --enable-__cxa_atexit \
     --enable-clocale=gnu \
-    --enable-libstdcxx-backtrace \
+    --disable-libstdcxx-backtrace \
+    --disable-libstdcxx-pch \
+    --with-native-system-header-dir=/usr/include \
     --enable-lto \
     --enable-default-pie \
     --enable-default-ssp \
@@ -526,6 +562,7 @@ step_gcc_stage2() {
   ln -sfv "${TARGET}-gcc" "${TOOLCHAIN_DIR}/bin/${TARGET}-cc" 2>/dev/null || true
 
   log "GCC Stage 2 complete ✓"
+  mark_done "gcc-stage2"
 }
 
 # =============================================================================
@@ -533,6 +570,7 @@ step_gcc_stage2() {
 # =============================================================================
 step_ncurses() {
   step "STEP 12 — Building Ncurses ${VER_NCURSES} for target"
+  is_done "ncurses" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/ncurses-${VER_NCURSES}"
   local BLD="${BUILD_DIR}/ncurses"
@@ -561,6 +599,7 @@ step_ncurses() {
   done
 
   log "Ncurses complete ✓"
+  mark_done "ncurses"
 }
 
 # =============================================================================
@@ -568,6 +607,7 @@ step_ncurses() {
 # =============================================================================
 step_readline() {
   step "STEP 13 — Building Readline ${VER_READLINE} for target"
+  is_done "readline" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/readline-${VER_READLINE}"
   local BLD="${BUILD_DIR}/readline"
@@ -590,6 +630,7 @@ step_readline() {
     2>&1 | tee "${BLD}/install.log"
 
   log "Readline complete ✓"
+  mark_done "readline"
 }
 
 # =============================================================================
@@ -597,6 +638,7 @@ step_readline() {
 # =============================================================================
 step_bash() {
   step "STEP 14 — Building Bash ${VER_BASH} for target"
+  is_done "bash" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/bash-${VER_BASH}"
   local BLD="${BUILD_DIR}/bash"
@@ -620,6 +662,7 @@ step_bash() {
   ln -sfv bash "${SYSROOT}/usr/bin/sh" 2>/dev/null || true
 
   log "Bash complete ✓"
+  mark_done "bash"
 }
 
 # =============================================================================
@@ -627,6 +670,7 @@ step_bash() {
 # =============================================================================
 step_coreutils() {
   step "STEP 15 — Building Coreutils ${VER_COREUTILS} for target"
+  is_done "coreutils" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/coreutils-${VER_COREUTILS}"
   local BLD="${BUILD_DIR}/coreutils"
@@ -649,6 +693,7 @@ step_coreutils() {
   make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
 
   log "Coreutils complete ✓"
+  mark_done "coreutils"
 }
 
 # =============================================================================
@@ -656,6 +701,7 @@ step_coreutils() {
 # =============================================================================
 step_inetutils() {
   step "STEP 16 — Building Inetutils ${VER_INETUTILS} for target"
+  is_done "inetutils" && { info "Already done — skipping."; return 0; }
 
   local SRC="${SOURCES_DIR}/inetutils-${VER_INETUTILS}"
   local BLD="${BUILD_DIR}/inetutils"
@@ -687,6 +733,176 @@ step_inetutils() {
   make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
 
   log "Inetutils complete ✓"
+  mark_done "inetutils"
+}
+
+# =============================================================================
+#  STEP 17 — Build sed (target)
+# =============================================================================
+step_sed() {
+  step "STEP 17 — Building sed ${VER_SED} for target"
+  is_done "sed" && { info "Already done — skipping."; return 0; }
+
+  local SRC="${SOURCES_DIR}/sed-${VER_SED}"
+  local BLD="${BUILD_DIR}/sed"
+  [[ -d "${SRC}" ]] || die "sed source not found: ${SRC}"
+
+  mkdir -p "${BLD}"; cd "${BLD}"
+
+  CC="${TARGET}-gcc" \
+  "${SRC}/configure" \
+    --prefix=/usr \
+    --host="${TARGET}" \
+    --build="$(uname -m)-linux-gnu" \
+    --disable-nls \
+    2>&1 | tee "${BLD}/configure.log"
+
+  make -j"${JOBS}" 2>&1 | tee "${BLD}/build.log"
+  make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
+
+  log "sed complete ✓"
+  mark_done "sed"
+}
+
+# =============================================================================
+#  STEP 18 — Build gawk (target)
+# =============================================================================
+step_gawk() {
+  step "STEP 18 — Building gawk ${VER_GAWK} for target"
+  is_done "gawk" && { info "Already done — skipping."; return 0; }
+
+  local SRC="${SOURCES_DIR}/gawk-${VER_GAWK}"
+  local BLD="${BUILD_DIR}/gawk"
+  [[ -d "${SRC}" ]] || die "gawk source not found: ${SRC}"
+
+  mkdir -p "${BLD}"; cd "${BLD}"
+
+  CC="${TARGET}-gcc" \
+  "${SRC}/configure" \
+    --prefix=/usr \
+    --host="${TARGET}" \
+    --build="$(uname -m)-linux-gnu" \
+    --disable-nls \
+    --without-mpfr \
+    2>&1 | tee "${BLD}/configure.log"
+
+  make -j"${JOBS}" 2>&1 | tee "${BLD}/build.log"
+  make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
+
+  log "gawk complete ✓"
+  mark_done "gawk"
+}
+
+# =============================================================================
+#  STEP 19 — Build m4 (target)
+# =============================================================================
+step_m4() {
+  step "STEP 19 — Building m4 ${VER_M4} for target"
+  is_done "m4" && { info "Already done — skipping."; return 0; }
+
+  local SRC="${SOURCES_DIR}/m4-${VER_M4}"
+  local BLD="${BUILD_DIR}/m4"
+  [[ -d "${SRC}" ]] || die "m4 source not found: ${SRC}"
+
+  mkdir -p "${BLD}"; cd "${BLD}"
+
+  CC="${TARGET}-gcc" \
+  "${SRC}/configure" \
+    --prefix=/usr \
+    --host="${TARGET}" \
+    --build="$(uname -m)-linux-gnu" \
+    --disable-nls \
+    2>&1 | tee "${BLD}/configure.log"
+
+  make -j"${JOBS}" 2>&1 | tee "${BLD}/build.log"
+  make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
+
+  log "m4 complete ✓"
+  mark_done "m4"
+}
+
+# =============================================================================
+#  STEP 20 — Build diffutils (target)
+# =============================================================================
+step_diffutils() {
+  step "STEP 20 — Building diffutils ${VER_DIFFUTILS} for target"
+  is_done "diffutils" && { info "Already done — skipping."; return 0; }
+
+  local SRC="${SOURCES_DIR}/diffutils-${VER_DIFFUTILS}"
+  local BLD="${BUILD_DIR}/diffutils"
+  [[ -d "${SRC}" ]] || die "diffutils source not found: ${SRC}"
+
+  mkdir -p "${BLD}"; cd "${BLD}"
+
+  CC="${TARGET}-gcc" \
+  "${SRC}/configure" \
+    --prefix=/usr \
+    --host="${TARGET}" \
+    --build="$(uname -m)-linux-gnu" \
+    --disable-nls \
+    2>&1 | tee "${BLD}/configure.log"
+
+  make -j"${JOBS}" 2>&1 | tee "${BLD}/build.log"
+  make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
+
+  log "diffutils complete ✓"
+  mark_done "diffutils"
+}
+
+# =============================================================================
+#  STEP 21 — Build findutils (target)
+# =============================================================================
+step_findutils() {
+  step "STEP 21 — Building findutils ${VER_FINDUTILS} for target"
+  is_done "findutils" && { info "Already done — skipping."; return 0; }
+
+  local SRC="${SOURCES_DIR}/findutils-${VER_FINDUTILS}"
+  local BLD="${BUILD_DIR}/findutils"
+  [[ -d "${SRC}" ]] || die "findutils source not found: ${SRC}"
+
+  mkdir -p "${BLD}"; cd "${BLD}"
+
+  CC="${TARGET}-gcc" \
+  "${SRC}/configure" \
+    --prefix=/usr \
+    --host="${TARGET}" \
+    --build="$(uname -m)-linux-gnu" \
+    --disable-nls \
+    2>&1 | tee "${BLD}/configure.log"
+
+  make -j"${JOBS}" 2>&1 | tee "${BLD}/build.log"
+  make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
+
+  log "findutils complete ✓"
+  mark_done "findutils"
+}
+
+# =============================================================================
+#  STEP 22 — Build grep (target)
+# =============================================================================
+step_grep() {
+  step "STEP 22 — Building grep ${VER_GREP} for target"
+  is_done "grep" && { info "Already done — skipping."; return 0; }
+
+  local SRC="${SOURCES_DIR}/grep-${VER_GREP}"
+  local BLD="${BUILD_DIR}/grep"
+  [[ -d "${SRC}" ]] || die "grep source not found: ${SRC}"
+
+  mkdir -p "${BLD}"; cd "${BLD}"
+
+  CC="${TARGET}-gcc" \
+  "${SRC}/configure" \
+    --prefix=/usr \
+    --host="${TARGET}" \
+    --build="$(uname -m)-linux-gnu" \
+    --disable-nls \
+    2>&1 | tee "${BLD}/configure.log"
+
+  make -j"${JOBS}" 2>&1 | tee "${BLD}/build.log"
+  make install DESTDIR="${SYSROOT}" 2>&1 | tee "${BLD}/install.log"
+
+  log "grep complete ✓"
+  mark_done "grep"
 }
 
 # =============================================================================
@@ -725,12 +941,18 @@ main() {
   # Step 11: Final compiler (Stage 2)
   step_gcc_stage2
   
-  # Steps 12-16: Target utilities
+  # Steps 12-22: Target utilities
   step_ncurses
   step_readline
   step_bash
   step_coreutils
   step_inetutils
+  step_sed
+  step_gawk
+  step_m4
+  step_diffutils
+  step_findutils
+  step_grep
 
   step "🎉 Toolchain and Base System Build Complete! 🎉"
   log "Project Directory: ${PROJECT_DIR}"
