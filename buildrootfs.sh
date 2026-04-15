@@ -306,7 +306,8 @@ step_rootfs_template() {
   log "Extracting rootfs template to ${SYSROOT}..."
   rm -rf "${SYSROOT}"
   mkdir -p "${SYSROOT}"
-  mkdir -p "${SYSROOT}/dev" "${SYSROOT}/proc" "${SYSROOT}/sys"
+  mkdir -p "${SYSROOT}/dev" "${SYSROOT}/proc" "${SYSROOT}/sys"  "${SYSROOT}/run"
+  cd "$SYSROOT"; ln -s System/Library/VirtualFS/TempFS tmp; cd $PROJECT_DIR
   tar -xJf "${TARBALL}" -C "${SYSROOT}"
 
   log "Rootfs template extracted ✓"
