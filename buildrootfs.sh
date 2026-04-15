@@ -20,14 +20,42 @@ step() { echo -e "\n${BOLD}${CYAN}═══════════════�
          echo -e "${BOLD}${CYAN}══════════════════════════════════════════${RESET}"; }
 
 # ─── Directory Layout ─────────────────────────────────────────────────────────
-export PROJECT_DIR="${HOME}/MochiOS"
-DOWNLOAD_DIR="${PROJECT_DIR}/download"
-SOURCES_DIR="${PROJECT_DIR}/sources"
-BUILD_DIR="${PROJECT_DIR}/build"
-export SYSROOT="${PROJECT_DIR}/rootfs"
+# PROJECT_DIR is set interactively — see prompt_project_dir() called in main()
 export TARGET="$(uname -m)-mochios-linux-gnu"
-TOOLCHAIN_DIR="${PROJECT_DIR}/tools"   # cross tools live here (not installed to host or rootfs)
-STAMPS_DIR="${PROJECT_DIR}/.stamps"
+
+setup_dirs() {
+  DOWNLOAD_DIR="${PROJECT_DIR}/download"
+  SOURCES_DIR="${PROJECT_DIR}/sources"
+  BUILD_DIR="${PROJECT_DIR}/build"
+  export SYSROOT="${PROJECT_DIR}/rootfs"
+  TOOLCHAIN_DIR="${PROJECT_DIR}/tools"   # cross tools live here (not installed to host or rootfs)
+  STAMPS_DIR="${PROJECT_DIR}/.stamps"
+}
+
+prompt_project_dir() {
+  echo -e "\n${BOLD}${CYAN}══════════════════════════════════════════${RESET}"
+  echo -e "${BOLD}${CYAN}  Set Project Folder To?${RESET}"
+  echo -e "${BOLD}${CYAN}══════════════════════════════════════════${RESET}"
+  echo -e "  ${BOLD}1)${RESET} ${HOME}/MochiOS  ${CYAN}(default)${RESET}"
+  echo -e "  ${BOLD}2)${RESET} ${PWD}"
+  echo -e "  ${BOLD}3)${RESET} Custom path"
+  echo ""
+  read -rp "$(echo -e "${CYAN}?${RESET} Select option [1-3] (default: 1): ")" _choice
+  case "${_choice}" in
+    2)
+      export PROJECT_DIR="${PWD}"
+      ;;
+    3)
+      read -rp "$(echo -e "${CYAN}?${RESET} Enter custom path: ")" _custom
+      _custom="${_custom/#\~/$HOME}"
+      export PROJECT_DIR="${_custom:-${HOME}/MochiOS}"
+      ;;
+    *)
+      export PROJECT_DIR="${HOME}/MochiOS"
+      ;;
+  esac
+  info "Project folder set to: ${PROJECT_DIR}"
+}
 
 # ─── Versions ─────────────────────────────────────────────────────────────────
 VER_LINUX="7.0"
@@ -925,6 +953,8 @@ step_grep() {
 #  Main Execution
 # =============================================================================
 main() {
+  prompt_project_dir
+  setup_dirs
   banner
   
   # Step 1: Initialize Workspace
