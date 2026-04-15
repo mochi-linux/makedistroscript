@@ -249,16 +249,9 @@ step_prepare_env() {
 
   mkdir -p "${BUILD_DIR}"/{binutils-stage1,gcc-stage1,glibc-headers,glibc,gcc-stage2}
   
-  # Create rootfs directories (pure target environment)
-  mkdir -p "${SYSROOT}"/usr/{include,lib,lib64,bin,sbin}
-  
   # Create cross-toolchain directories (host environment)
   mkdir -p "${TOOLCHAIN_DIR}/bin"
-
-  # Symlink for library convenience inside sysroot
-  [[ -L "${SYSROOT}/lib64" ]] || ln -sfv lib "${SYSROOT}/lib64" 2>/dev/null || true
-  [[ -L "${SYSROOT}/usr/lib64" ]] || ln -sfv lib "${SYSROOT}/usr/lib64" 2>/dev/null || true
-
+  
   # Add cross-tools to PATH for subsequent steps
   export PATH="${TOOLCHAIN_DIR}/bin:${PATH}"
 
