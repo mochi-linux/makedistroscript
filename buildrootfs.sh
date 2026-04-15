@@ -40,13 +40,13 @@ prompt_project_dir() {
   echo -e "  ${BOLD}2)${RESET} ${PWD}"
   echo -e "  ${BOLD}3)${RESET} Custom path"
   echo ""
-  read -rp "$(echo -e "${CYAN}?${RESET} Select option [1-3] (default: 1): ")" _choice
+  read -rp "$(echo -e "${CYAN}?${RESET} Select option [1-3] (default: 1): ")" _choice </dev/tty
   case "${_choice}" in
     2)
       export PROJECT_DIR="${PWD}"
       ;;
     3)
-      read -rp "$(echo -e "${CYAN}?${RESET} Enter custom path: ")" _custom
+      read -rp "$(echo -e "${CYAN}?${RESET} Enter custom path: ")" _custom </dev/tty
       _custom="${_custom/#\~/$HOME}"
       export PROJECT_DIR="${_custom:-${HOME}/MochiOS}"
       ;;
