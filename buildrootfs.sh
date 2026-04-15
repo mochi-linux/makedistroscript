@@ -970,6 +970,7 @@ main() {
   step_findutils
   step_grep
 
+  # move loaderlinux to lib64
   mv $SYSROOT/lib/ld-linux-x86-64.so.2 $SYSROOT/lib64/
 
   step "🎉 Toolchain and Base System Build Complete! 🎉"
