@@ -964,9 +964,11 @@ main() {
   step_sed
   step_gawk
   step_m4
-  step_diffutils
+  # step_diffutils
   step_findutils
   step_grep
+
+  mv $SYSROOT/lib/ld-linux-x86-64.so.2 $SYSROOT/lib64/
 
   step "🎉 Toolchain and Base System Build Complete! 🎉"
   log "Project Directory: ${PROJECT_DIR}"
