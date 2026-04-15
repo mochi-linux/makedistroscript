@@ -306,6 +306,7 @@ step_rootfs_template() {
   log "Extracting rootfs template to ${SYSROOT}..."
   rm -rf "${SYSROOT}"
   mkdir -p "${SYSROOT}"
+  mkdir -p "${SYSROOT}/dev" "${SYSROOT}/proc" "${SYSROOT}/sys"
   tar -xJf "${TARBALL}" -C "${SYSROOT}"
 
   log "Rootfs template extracted ✓"
