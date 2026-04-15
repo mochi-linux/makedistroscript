@@ -55,20 +55,20 @@ ROOTFS_TEMPLATE_URL="https://cdn.mochilinux.org/mcrootfs.tar.xz"
 # ─── Source URLs ──────────────────────────────────────────────────────────────
 declare -A URLS=(
   ["linux-${VER_LINUX}.tar.xz"]="https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${VER_LINUX}.tar.xz"
-  ["glibc-${VER_GLIBC}.tar.xz"]="https://ftp.gnu.org/gnu/glibc/glibc-${VER_GLIBC}.tar.xz"
-  ["gcc-${VER_GCC}.tar.xz"]="https://ftp.gnu.org/gnu/gcc/gcc-${VER_GCC}/gcc-${VER_GCC}.tar.xz"
-  ["binutils-${VER_BINUTILS}.tar.xz"]="https://ftp.gnu.org/gnu/binutils/binutils-${VER_BINUTILS}.tar.xz"
-  ["bash-${VER_BASH}.tar.gz"]="https://ftp.gnu.org/gnu/bash/bash-${VER_BASH}.tar.gz"
-  ["coreutils-${VER_COREUTILS}.tar.xz"]="https://ftp.gnu.org/gnu/coreutils/coreutils-${VER_COREUTILS}.tar.xz"
-  ["readline-${VER_READLINE}.tar.gz"]="https://ftp.gnu.org/gnu/readline/readline-${VER_READLINE}.tar.gz"
-  ["ncurses-${VER_NCURSES}.tar.gz"]="https://ftp.gnu.org/gnu/ncurses/ncurses-${VER_NCURSES}.tar.gz"
-  ["inetutils-${VER_INETUTILS}.tar.gz"]="https://ftp.gnu.org/gnu/inetutils/inetutils-${VER_INETUTILS}.tar.gz"
-  ["sed-${VER_SED}.tar.xz"]="https://ftp.gnu.org/gnu/sed/sed-${VER_SED}.tar.xz"
-  ["gawk-${VER_GAWK}.tar.xz"]="https://ftp.gnu.org/gnu/gawk/gawk-${VER_GAWK}.tar.xz"
-  ["m4-${VER_M4}.tar.xz"]="https://ftp.gnu.org/gnu/m4/m4-${VER_M4}.tar.xz"
-  ["diffutils-${VER_DIFFUTILS}.tar.xz"]="https://ftp.gnu.org/gnu/diffutils/diffutils-${VER_DIFFUTILS}.tar.xz"
-  ["findutils-${VER_FINDUTILS}.tar.xz"]="https://ftp.gnu.org/gnu/findutils/findutils-${VER_FINDUTILS}.tar.xz"
-  ["grep-${VER_GREP}.tar.xz"]="https://ftp.gnu.org/gnu/grep/grep-${VER_GREP}.tar.xz"
+  ["glibc-${VER_GLIBC}.tar.xz"]="https://mirror.cyberbits.asia/gnu/glibc/glibc-${VER_GLIBC}.tar.xz"
+  ["gcc-${VER_GCC}.tar.xz"]="https://mirror.cyberbits.asia/gnu/gcc/gcc-${VER_GCC}/gcc-${VER_GCC}.tar.xz"
+  ["binutils-${VER_BINUTILS}.tar.xz"]="https://mirror.cyberbits.asia/gnu/binutils/binutils-${VER_BINUTILS}.tar.xz"
+  ["bash-${VER_BASH}.tar.gz"]="https://mirror.cyberbits.asia/gnu/bash/bash-${VER_BASH}.tar.gz"
+  ["coreutils-${VER_COREUTILS}.tar.xz"]="https://mirror.cyberbits.asia/gnu/coreutils/coreutils-${VER_COREUTILS}.tar.xz"
+  ["readline-${VER_READLINE}.tar.gz"]="https://mirror.cyberbits.asia/gnu/readline/readline-${VER_READLINE}.tar.gz"
+  ["ncurses-${VER_NCURSES}.tar.gz"]="https://mirror.cyberbits.asia/gnu/ncurses/ncurses-${VER_NCURSES}.tar.gz"
+  ["inetutils-${VER_INETUTILS}.tar.gz"]="https://mirror.cyberbits.asia/gnu/inetutils/inetutils-${VER_INETUTILS}.tar.gz"
+  ["sed-${VER_SED}.tar.xz"]="https://mirror.cyberbits.asia/gnu/sed/sed-${VER_SED}.tar.xz"
+  ["gawk-${VER_GAWK}.tar.xz"]="https://mirror.cyberbits.asia/gnu/gawk/gawk-${VER_GAWK}.tar.xz"
+  ["m4-${VER_M4}.tar.xz"]="https://mirror.cyberbits.asia/gnu/m4/m4-${VER_M4}.tar.xz"
+  ["diffutils-${VER_DIFFUTILS}.tar.xz"]="https://mirror.cyberbits.asia/gnu/diffutils/diffutils-${VER_DIFFUTILS}.tar.xz"
+  ["findutils-${VER_FINDUTILS}.tar.xz"]="https://mirror.cyberbits.asia/gnu/findutils/findutils-${VER_FINDUTILS}.tar.xz"
+  ["grep-${VER_GREP}.tar.xz"]="https://mirror.cyberbits.asia/gnu/grep/grep-${VER_GREP}.tar.xz"
 )
 
 # ─── Helper: check command ────────────────────────────────────────────────────
@@ -192,11 +192,14 @@ step_download() {
       continue
     fi
 
-    cat >> "${INPUT_FILE}" << EOF
-${URL}
-  out=${TARBALL}
-  dir=${DOWNLOAD_DIR}
-EOF
+    echo "${URL}" >> "${INPUT_FILE}"
+    if [[ "${URL}" == *"ftp.gnu.org/gnu"* ]]; then
+      echo "  ${URL/ftp.gnu.org\/gnu/ftpmirror.gnu.org\/gnu}" >> "${INPUT_FILE}"
+      echo "  ${URL/ftp.gnu.org\/gnu/mirrors.kernel.org\/gnu}" >> "${INPUT_FILE}"
+    fi
+    echo "  out=${TARBALL}" >> "${INPUT_FILE}"
+    echo "  dir=${DOWNLOAD_DIR}" >> "${INPUT_FILE}"
+    echo "" >> "${INPUT_FILE}"
   done
 
   if [[ ! -s "${INPUT_FILE}" ]]; then
@@ -209,12 +212,14 @@ EOF
   aria2c \
     --input-file="${INPUT_FILE}" \
     --max-concurrent-downloads=4 \
-    --split=4 \
+    --split=2 \
     --min-split-size=5M \
-    --max-connection-per-server=4 \
+    --max-connection-per-server=2 \
     --continue=true \
     --retry-wait=5 \
-    --max-tries=5 \
+    --max-tries=10 \
+    --connect-timeout=30 \
+    --timeout=60 \
     --summary-interval=30 \
     --console-log-level=notice \
     --file-allocation=none
