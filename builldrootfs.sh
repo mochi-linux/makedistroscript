@@ -531,6 +531,9 @@ step_gcc_stage2() {
   local BLD="${BUILD_DIR}/gcc-stage2"
   [[ -d "${SRC}" ]] || die "GCC source not found: ${SRC}"
 
+  log "Cleaning stale build directory..."
+  rm -rf "${BLD}"
+  mkdir -p "${BLD}"
   cd "${BLD}"
 
   log "Configuring GCC Stage 2..."
@@ -554,6 +557,12 @@ step_gcc_stage2() {
     --disable-nls \
     --disable-multilib \
     --disable-bootstrap \
+    --disable-libgomp \
+    --disable-libitm \
+    --disable-libsanitizer \
+    --disable-libquadmath \
+    --disable-libvtv \
+    --disable-libssp \
     2>&1 | tee "${BLD}/configure.log"
 
   log "Building GCC Stage 2 (${JOBS} jobs)..."
