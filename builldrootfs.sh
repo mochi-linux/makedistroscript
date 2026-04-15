@@ -267,7 +267,7 @@ step_rootfs_template() {
 
   local TARBALL="${DOWNLOAD_DIR}/mcrootfs.tar.xz"
 
-  mkdir -p "${DOWNLOAD_DIR}" "${SYSROOT}"
+  mkdir -p "${DOWNLOAD_DIR}"
 
   if [[ ! -f "${TARBALL}" ]]; then
     log "Downloading rootfs template..."
@@ -277,6 +277,8 @@ step_rootfs_template() {
   fi
 
   log "Extracting rootfs template to ${SYSROOT}..."
+  rm -rf "${SYSROOT}"
+  mkdir -p "${SYSROOT}"
   tar -xJf "${TARBALL}" -C "${SYSROOT}"
 
   log "Rootfs template extracted ✓"
